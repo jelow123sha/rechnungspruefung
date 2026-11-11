@@ -23,8 +23,15 @@ Netzlaufwerk – für mehrere Nutzer gleichzeitig im Firmennetzwerk.
 - **Mehrere Nutzer:** Gleichzeitige Nutzung mehrerer Nutzer im Netzwerk wird
   unterstützt (SQLite im WAL-Modus, Listen-Aktualisierung alle 15 Sekunden).
 - **Flexibles Layout:** Die PDF-Vorschau rechts kann per ziehbarer Trennlinie
-  vergrößert werden; der Freigabe-Bereich liegt links unter der Liste. Die
-  gewählte Breite wird im Browser gespeichert.
+  vergrößert werden (Doppelklick auf die Trennlinie setzt die Standardbreite
+  zurück); der Freigabe-Bereich liegt links unter der Liste. Die gewählte
+  Breite wird im Browser gespeichert.
+- **PDFs zusammenfügen:** Mehrteilige Rechnungen (z. B. Handwerkerrechnung +
+  Arbeitsbericht) können vor der Freigabe zusammengefügt werden: Rechnung
+  auswählen, im Freigabe-Bereich die anzuhängende PDF aus dem Eingangsordner
+  wählen und auf **Zusammenfügen** klicken. Die angehängte Datei verschwindet
+  aus dem Eingangsordner und aus der Liste; mehrfaches Anhängen (weitere
+  Belege) ist möglich.
 
 ## Installation
 

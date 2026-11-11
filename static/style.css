@@ -70,14 +70,35 @@ header h1 { font-size: 20px; margin: 0; }
 
 .divider {
     flex-shrink: 0;
-    width: 7px;
+    width: 10px;
     cursor: col-resize;
-    background: #dfe3e8;
+    background: #e3e7ec;
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
+    position: relative;
+    touch-action: none;
 }
 
-.divider:hover { background: var(--green-light); }
+.divider::after {
+    content: "⋮";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #8a919c;
+    font-size: 16px;
+    pointer-events: none;
+}
+
+.divider:hover, .divider.dragging { background: var(--green-light); }
+
+.merge-box {
+    margin-top: 14px;
+    border-top: 1px dashed var(--border);
+    padding-top: 10px;
+}
+
+.merge-box .actions { margin-top: 8px; }
 
 .pane-view {
     flex: 1;

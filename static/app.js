@@ -17,6 +17,9 @@ const approvalMsg = document.getElementById("approval-msg");
 const btnApprove = document.getElementById("btn-approve");
 const btnSaveComment = document.getElementById("btn-save-comment");
 const stampPosition = document.getElementById("stamp-position");
+const mergeBox = document.getElementById("merge-box");
+const mergeSelect = document.getElementById("merge-select");
+const btnMerge = document.getElementById("btn-merge");
 const mainArea = document.getElementById("main-area");
 const paneLeft = document.getElementById("pane-left");
 const divider = document.getElementById("divider");
@@ -143,6 +146,22 @@ function clearSelection() {
     approvalMsg.textContent = "";
 }
 
+function populateMergeOptions(inv) {
+    const others = invoices.filter(i => i.id !== inv.id);
+    mergeSelect.innerHTML = "";
+    if (!others.length) {
+        mergeBox.classList.add("hidden");
+        return;
+    }
+    mergeBox.classList.remove("hidden");
+    for (const o of others) {
+        const opt = document.createElement("option");
+        opt.value = o.id;
+        opt.textContent = o.filename;
+        mergeSelect.appendChild(opt);
+    }
+}
+
 function selectInvoice(id) {
     selectedId = id;
     const inv = invoices.find(i => i.id === id);
@@ -156,6 +175,7 @@ function selectInvoice(id) {
     approvalMsg.textContent = "";
     approvalPanel.classList.remove("hidden");
     approverInput.classList.remove("invalid");
+    populateMergeOptions(inv);
 }
 
 function selectHistory(id) {
@@ -181,6 +201,33 @@ async function saveComment() {
     } catch (err) {
         approvalMsg.className = "msg error";
         approvalMsg.textContent = err.message;
+    }
+}
+
+async function mergePdfs() {
+    if (selectedId === null || mode !== "open") return;
+    const inv = invoices.find(i => i.id === selectedId);
+    const otherId = parseInt(mergeSelect.value, 10);
+    const other = invoices.find(i => i.id === otherId);
+    if (!inv || !other) return;
+    if (!confirm(`"${other.filename}" an "${inv.filename}" anhängen? Die Datei "${other.filename}" wird danach aus dem Eingangsordner entfernt.`)) return;
+
+    btnMerge.disabled = true;
+    try {
+        const result = await api(`/api/invoices/${inv.id}/merge`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ other_id: other.id })
+        });
+        await refreshPending();
+        selectInvoice(inv.id);
+        approvalMsg.className = "msg ok";
+        approvalMsg.textContent = `Zusammengefügt: ${result.filename} hat jetzt ${result.pages} Seiten.`;
+    } catch (err) {
+        approvalMsg.className = "msg error";
+        approvalMsg.textContent = err.message;
+    } finally {
+        btnMerge.disabled = false;
     }
 }
 
@@ -236,27 +283,39 @@ tabOpen.addEventListener("click", () => setMode("open"));
 tabHistory.addEventListener("click", () => setMode("history"));
 btnApprove.addEventListener("click", approve);
 btnSaveComment.addEventListener("click", saveComment);
+btnMerge.addEventListener("click", mergePdfs);
 
 let dragging = false;
-divider.addEventListener("mousedown", (e) => {
-    dragging = true;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-    e.preventDefault();
-});
-window.addEventListener("mousemove", (e) => {
-    if (!dragging) return;
+
+function resizeFrom(clientX) {
     const rect = mainArea.getBoundingClientRect();
-    let pct = ((e.clientX - rect.left) / rect.width) * 100;
+    let pct = ((clientX - rect.left) / rect.width) * 100;
     pct = Math.min(80, Math.max(15, pct));
     paneLeft.style.width = pct + "%";
+}
+
+divider.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    try { divider.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    e.preventDefault();
 });
-window.addEventListener("mouseup", () => {
+divider.addEventListener("pointermove", (e) => {
+    if (dragging) resizeFrom(e.clientX);
+});
+function stopDrag() {
     if (!dragging) return;
     dragging = false;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
     localStorage.setItem("paneWidth", paneLeft.style.width);
+}
+divider.addEventListener("pointerup", stopDrag);
+divider.addEventListener("pointercancel", stopDrag);
+divider.addEventListener("dblclick", () => {
+    paneLeft.style.width = "42%";
+    localStorage.setItem("paneWidth", "42%");
 });
 
 refreshPending();

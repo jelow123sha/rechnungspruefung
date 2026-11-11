@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rechnungsprüfung</title>
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
     <header>
@@ -67,6 +67,13 @@
                     <button id="btn-save-comment" class="secondary">Kommentar speichern</button>
                     <button id="btn-approve" class="primary">Freigeben &amp; archivieren</button>
                 </div>
+                <div id="merge-box" class="merge-box">
+                    <label for="merge-select">PDF an diese Rechnung anhängen (zusammenfügen):</label>
+                    <select id="merge-select"></select>
+                    <div class="actions">
+                        <button id="btn-merge" class="secondary">Zusammenfügen</button>
+                    </div>
+                </div>
                 <p id="approval-msg" class="msg"></p>
             </div>
         </section>
@@ -81,6 +88,6 @@
         </section>
     </main>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>

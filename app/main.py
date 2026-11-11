@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from pypdf import PdfReader, PdfWriter
 
 from .config import Config
 from .db import Database
@@ -35,6 +37,10 @@ class ApprovePayload(BaseModel):
     approver: str
     comment: str = ""
     position: str = "bottom-left"
+
+
+class MergePayload(BaseModel):
+    other_id: int
 
 
 def _scan() -> int:
@@ -146,6 +152,51 @@ def approve_invoice(invoice_id: int, payload: ApprovePayload) -> dict:
     )
     db.delete_invoice(invoice_id)
     return {"ok": True, "archive_path": str(dest)}
+
+
+@app.post("/api/invoices/{invoice_id}/merge")
+def merge_invoice(invoice_id: int, payload: MergePayload) -> dict:
+    invoice = db.get_invoice(invoice_id)
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    other = db.get_invoice(payload.other_id)
+    if other is None:
+        raise HTTPException(status_code=404, detail="Anzuhängende PDF nicht gefunden")
+    if payload.other_id == invoice_id:
+        raise HTTPException(status_code=400,
+                            detail="Eine Rechnung kann nicht mit sich selbst zusammengefügt werden.")
+
+    src = Path(invoice["filepath"])
+    other_path = Path(other["filepath"])
+    if not src.exists():
+        db.delete_invoice(invoice_id)
+        raise HTTPException(status_code=410, detail="Rechnungsdatei existiert nicht mehr.")
+    if not other_path.exists():
+        db.delete_invoice(payload.other_id)
+        raise HTTPException(status_code=410,
+                            detail="Die anzuhängende Datei existiert nicht mehr.")
+
+    handle, tmp_name = tempfile.mkstemp(suffix=".pdf", dir=str(src.parent))
+    os.close(handle)
+    tmp = Path(tmp_name)
+    try:
+        writer = PdfWriter(clone_from=str(src))
+        for page in PdfReader(str(other_path)).pages:
+            writer.add_page(page)
+        with open(tmp, "wb") as fh:
+            writer.write(fh)
+        os.replace(tmp, src)
+    except Exception:
+        traceback.print_exc()
+        tmp.unlink(missing_ok=True)
+        raise HTTPException(status_code=500,
+                            detail="Zusammenfügen fehlgeschlagen "
+                                   "(PDF beschädigt oder passwortgeschützt?).")
+    other_path.unlink(missing_ok=True)
+    db.delete_invoice(payload.other_id)
+
+    page_count = len(PdfReader(str(src)).pages)
+    return {"ok": True, "filename": invoice["filename"], "pages": page_count}
 
 
 @app.get("/api/history")
