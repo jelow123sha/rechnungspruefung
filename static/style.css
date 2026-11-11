@@ -70,27 +70,44 @@ header h1 { font-size: 20px; margin: 0; }
 
 .divider {
     flex-shrink: 0;
-    width: 10px;
+    width: 12px;
     cursor: col-resize;
-    background: #e3e7ec;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
+    background: #b8c0ca;
+    border-left: 1px solid #99a2ad;
+    border-right: 1px solid #99a2ad;
     position: relative;
     touch-action: none;
 }
 
+.divider::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -6px;
+    right: -6px;
+}
+
 .divider::after {
-    content: "⋮";
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #8a919c;
-    font-size: 16px;
+    width: 6px;
+    height: 48px;
+    border-radius: 4px;
+    background: repeating-linear-gradient(
+        to bottom,
+        #4a5560 0 3px,
+        transparent 3px 8px
+    );
     pointer-events: none;
 }
 
-.divider:hover, .divider.dragging { background: var(--green-light); }
+.divider:hover, .divider.dragging { background: var(--green); }
+
+.hint { font-size: 12px; color: #666; margin: 6px 0 0; }
 
 .merge-box {
     margin-top: 14px;

@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     amount REAL,
     received_at TEXT,
     comment TEXT NOT NULL DEFAULT '',
+    pages INTEGER,
     added_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS history (
@@ -39,6 +40,10 @@ class Database:
         self._lock = threading.Lock()
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
+            try:
+                conn.execute("ALTER TABLE invoices ADD COLUMN pages INTEGER")
+            except sqlite3.OperationalError:
+                pass
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._path, timeout=30)
@@ -53,8 +58,8 @@ class Database:
             for entry in entries:
                 cur = conn.execute(
                     "INSERT OR IGNORE INTO invoices "
-                    "(filename, filepath, sender, recipient, amount, received_at, added_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "(filename, filepath, sender, recipient, amount, received_at, pages, added_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         entry["filename"],
                         entry["filepath"],
@@ -62,10 +67,15 @@ class Database:
                         entry["recipient"],
                         entry["amount"],
                         entry["received_at"],
+                        entry.get("pages"),
                         entry["added_at"],
                     ),
                 )
                 added += cur.rowcount
+                conn.execute(
+                    "UPDATE invoices SET pages = ? WHERE filepath = ?",
+                    (entry.get("pages"), entry["filepath"]),
+                )
             conn.execute(
                 "DELETE FROM invoices WHERE filepath NOT IN "
                 f"({', '.join('?' for _ in entries) or "''"})",
@@ -96,6 +106,12 @@ class Database:
     def delete_invoice(self, invoice_id: int) -> None:
         with self._lock, self._connect() as conn:
             conn.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
+
+    def update_pages(self, invoice_id: int, pages: int) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "UPDATE invoices SET pages = ? WHERE id = ?", (pages, invoice_id)
+            )
 
     def record_approval(self, entry: dict) -> None:
         with self._lock, self._connect() as conn:

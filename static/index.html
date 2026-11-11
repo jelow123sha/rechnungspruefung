@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rechnungsprüfung</title>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
     <header>
@@ -68,8 +68,9 @@
                     <button id="btn-approve" class="primary">Freigeben &amp; archivieren</button>
                 </div>
                 <div id="merge-box" class="merge-box">
-                    <label for="merge-select">PDF an diese Rechnung anhängen (zusammenfügen):</label>
+                    <label for="merge-select">PDF anhängen an „<span id="merge-target"></span>“:</label>
                     <select id="merge-select"></select>
+                    <p class="hint">Die gewählte Datei wird an die ausgewählte Rechnung angehängt und danach aus dem Eingangsordner entfernt. Die Rechnung behält ihren Dateinamen.</p>
                     <div class="actions">
                         <button id="btn-merge" class="secondary">Zusammenfügen</button>
                     </div>
@@ -88,6 +89,6 @@
         </section>
     </main>
 
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
 </body>
 </html>

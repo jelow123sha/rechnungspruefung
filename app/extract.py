@@ -182,9 +182,15 @@ def extract_invoice_data(path: Path) -> dict:
     if amount is None:
         amount = _find_amount(lines)
 
+    try:
+        pages = len(reader.pages)
+    except Exception:
+        pages = 0
+
     return {
         "sender": sender,
         "recipient": recipient,
         "amount": amount,
         "received_at": _received_at(reader, path),
+        "pages": pages,
     }

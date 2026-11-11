@@ -55,7 +55,8 @@ def _scan() -> int:
         except Exception:
             data = {"sender": None, "recipient": None, "amount": None,
                     "received_at": datetime.fromtimestamp(
-                        path.stat().st_mtime, tz=timezone.utc).isoformat()}
+                        path.stat().st_mtime, tz=timezone.utc).isoformat(),
+                    "pages": 0}
         entries.append(
             {
                 "filename": path.name,
@@ -64,6 +65,7 @@ def _scan() -> int:
                 "recipient": data["recipient"],
                 "amount": data["amount"],
                 "received_at": data["received_at"],
+                "pages": data.get("pages"),
                 "added_at": now,
             }
         )
@@ -176,27 +178,56 @@ def merge_invoice(invoice_id: int, payload: MergePayload) -> dict:
         raise HTTPException(status_code=410,
                             detail="Die anzuhängende Datei existiert nicht mehr.")
 
+    try:
+        src_pages = len(PdfReader(str(src)).pages)
+    except Exception:
+        raise HTTPException(status_code=400,
+                            detail="Die Rechnungs-PDF konnte nicht gelesen werden "
+                                   "(beschädigt oder passwortgeschützt?).")
+    try:
+        other_reader = PdfReader(str(other_path))
+        other_pages = len(other_reader.pages)
+    except Exception:
+        raise HTTPException(status_code=400,
+                            detail="Die anzuhängende PDF konnte nicht gelesen werden "
+                                   "(beschädigt oder passwortgeschützt?).")
+    if other_pages == 0:
+        raise HTTPException(status_code=400,
+                            detail="Die anzuhängende PDF enthält keine lesbaren Seiten "
+                                   "(Datei wird nicht gelöscht).")
+
     handle, tmp_name = tempfile.mkstemp(suffix=".pdf", dir=str(src.parent))
     os.close(handle)
     tmp = Path(tmp_name)
     try:
         writer = PdfWriter(clone_from=str(src))
-        for page in PdfReader(str(other_path)).pages:
-            writer.add_page(page)
+        writer.append(other_reader)
         with open(tmp, "wb") as fh:
             writer.write(fh)
-        os.replace(tmp, src)
+        merged_pages = len(PdfReader(str(tmp)).pages)
+        if merged_pages != src_pages + other_pages:
+            raise ValueError(
+                f"Seitenzahl nach Merge falsch: {merged_pages} statt "
+                f"{src_pages + other_pages}")
     except Exception:
         traceback.print_exc()
         tmp.unlink(missing_ok=True)
         raise HTTPException(status_code=500,
-                            detail="Zusammenfügen fehlgeschlagen "
-                                   "(PDF beschädigt oder passwortgeschützt?).")
+                            detail="Zusammenfügen fehlgeschlagen – die Dateien wurden "
+                                   "nicht verändert. (PDF beschädigt oder "
+                                   "passwortgeschützt?)")
+    os.replace(tmp, src)
     other_path.unlink(missing_ok=True)
     db.delete_invoice(payload.other_id)
+    db.update_pages(invoice_id, merged_pages)
 
-    page_count = len(PdfReader(str(src)).pages)
-    return {"ok": True, "filename": invoice["filename"], "pages": page_count}
+    return {
+        "ok": True,
+        "filename": invoice["filename"],
+        "pages_before": src_pages,
+        "pages_added": other_pages,
+        "pages_after": merged_pages,
+    }
 
 
 @app.get("/api/history")

@@ -20,6 +20,7 @@ const stampPosition = document.getElementById("stamp-position");
 const mergeBox = document.getElementById("merge-box");
 const mergeSelect = document.getElementById("merge-select");
 const btnMerge = document.getElementById("btn-merge");
+const mergeTarget = document.getElementById("merge-target");
 const mainArea = document.getElementById("main-area");
 const paneLeft = document.getElementById("pane-left");
 const divider = document.getElementById("divider");
@@ -146,9 +147,14 @@ function clearSelection() {
     approvalMsg.textContent = "";
 }
 
+function pagesLabel(inv) {
+    return inv.pages ? `${inv.pages} Seite${inv.pages === 1 ? "" : "n"}` : "Seitenzahl unbekannt";
+}
+
 function populateMergeOptions(inv) {
     const others = invoices.filter(i => i.id !== inv.id);
     mergeSelect.innerHTML = "";
+    mergeTarget.textContent = inv.filename;
     if (!others.length) {
         mergeBox.classList.add("hidden");
         return;
@@ -157,7 +163,7 @@ function populateMergeOptions(inv) {
     for (const o of others) {
         const opt = document.createElement("option");
         opt.value = o.id;
-        opt.textContent = o.filename;
+        opt.textContent = `${o.filename} (${pagesLabel(o)})`;
         mergeSelect.appendChild(opt);
     }
 }
@@ -210,7 +216,10 @@ async function mergePdfs() {
     const otherId = parseInt(mergeSelect.value, 10);
     const other = invoices.find(i => i.id === otherId);
     if (!inv || !other) return;
-    if (!confirm(`"${other.filename}" an "${inv.filename}" anhängen? Die Datei "${other.filename}" wird danach aus dem Eingangsordner entfernt.`)) return;
+    const msg = `"${other.filename}" (${pagesLabel(other)}) wird an "${inv.filename}" angehängt.\n\n` +
+        `Die Datei "${other.filename}" wird danach aus dem Eingangsordner entfernt. ` +
+        `Die zusammengeführte Datei heißt weiterhin "${inv.filename}".\n\nFortfahren?`;
+    if (!confirm(msg)) return;
 
     btnMerge.disabled = true;
     try {
@@ -222,7 +231,7 @@ async function mergePdfs() {
         await refreshPending();
         selectInvoice(inv.id);
         approvalMsg.className = "msg ok";
-        approvalMsg.textContent = `Zusammengefügt: ${result.filename} hat jetzt ${result.pages} Seiten.`;
+        approvalMsg.textContent = `Zusammengefügt: "${result.filename}" enthält jetzt ${result.pages_after} Seiten (${result.pages_added} angehängt).`;
     } catch (err) {
         approvalMsg.className = "msg error";
         approvalMsg.textContent = err.message;
