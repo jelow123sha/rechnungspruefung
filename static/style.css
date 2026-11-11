@@ -113,6 +113,8 @@ tbody tr.selected { background: var(--green-light); }
 
 td.missing { color: #999; font-style: italic; }
 
+td.num, td.date { white-space: nowrap; }
+
 .viewer-empty {
     flex: 1;
     display: flex;
@@ -148,7 +150,8 @@ td.missing { color: #999; font-style: italic; }
 }
 
 .approval-panel input,
-.approval-panel textarea {
+.approval-panel textarea,
+.approval-panel select {
     width: 100%;
     padding: 8px;
     border: 1px solid var(--border);

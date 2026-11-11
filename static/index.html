@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rechnungsprüfung</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
     <header>
@@ -55,6 +55,14 @@
                 <input id="approver" type="text" placeholder="Ihr Name" autocomplete="name">
                 <label for="comment">Kommentar:</label>
                 <textarea id="comment" rows="4" placeholder="Anmerkung zur Rechnung (optional, wird in die PDF geschrieben)"></textarea>
+                <label for="stamp-position">Position des Freigabe-Vermerks in der PDF:</label>
+                <select id="stamp-position">
+                    <option value="bottom-left">Unten links</option>
+                    <option value="bottom-right">Unten rechts</option>
+                    <option value="top-left">Oben links</option>
+                    <option value="top-right">Oben rechts</option>
+                    <option value="last-page">Eigene Seite am Ende (verdeckt nichts)</option>
+                </select>
                 <div class="actions">
                     <button id="btn-save-comment" class="secondary">Kommentar speichern</button>
                     <button id="btn-approve" class="primary">Freigeben &amp; archivieren</button>
@@ -73,6 +81,6 @@
         </section>
     </main>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>

@@ -12,9 +12,10 @@ Netzlaufwerk – für mehrere Nutzer gleichzeitig im Firmennetzwerk.
   XML-Datei gelesen; sonst per Texterkennung aus dem PDF-Inhalt.
 - **Vorschau:** Klick auf eine Rechnung zeigt die PDF im rechten Bereich.
 - **Kommentare:** Der Nutzer kann einen Kommentar speichern; bei der Freigabe
-  wird der Kommentar dauerhaft in die PDF-Datei geschrieben (grüner Vermerk
-  unten auf Seite 1, in jedem PDF-Betrachter sichtbar) und in der Historie
-  abgelegt.
+  wird der Kommentar dauerhaft in die PDF-Datei geschrieben (grüner Vermerk,
+  in jedem PDF-Betrachter sichtbar) und in der Historie abgelegt. Die Position
+  des Vermerks wird vor der Freigabe gewählt (unten/oben links/rechts oder
+  eigene Seite am Dokumentende, damit keine Rechnungsdaten verdeckt werden).
 - **Freigabe (Pflichtfeld Name):** Ohne Eingabe des Prüfer-Namens ist keine
   Freigabe möglich. Die Datei wird in den Archiv-Ordner verschoben, verschwindet
   aus der Liste und erscheint unter **Historische Freigaben** mit Prüfer,

@@ -23,6 +23,10 @@ db = Database(config.db_path)
 app = FastAPI(title="Rechnungsprüfung")
 
 
+STAMP_POSITIONS = ("bottom-left", "bottom-right", "top-left", "top-right",
+                   "last-page")
+
+
 class CommentPayload(BaseModel):
     comment: str = ""
 
@@ -30,6 +34,7 @@ class CommentPayload(BaseModel):
 class ApprovePayload(BaseModel):
     approver: str
     comment: str = ""
+    position: str = "bottom-left"
 
 
 def _scan() -> int:
@@ -104,6 +109,7 @@ def approve_invoice(invoice_id: int, payload: ApprovePayload) -> dict:
                             detail="Datei existiert nicht mehr im Eingangsordner.")
 
     now = datetime.now(timezone.utc)
+    position = payload.position if payload.position in STAMP_POSITIONS else "bottom-left"
     config.archive_dir.mkdir(parents=True, exist_ok=True)
     dest = config.archive_dir / src.name
     if dest.exists():
@@ -115,7 +121,7 @@ def approve_invoice(invoice_id: int, payload: ApprovePayload) -> dict:
     tmp = Path(tmp_name)
     try:
         try:
-            write_approval_stamp(src, tmp, approver, comment, now)
+            write_approval_stamp(src, tmp, approver, comment, now, position)
         except Exception:
             shutil.copyfile(src, tmp)
         os.replace(tmp, dest)
@@ -160,5 +166,13 @@ def history_file(entry_id: int) -> FileResponse:
                         content_disposition_type="inline")
 
 
-app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "static"),
-                           html=True), name="static")
+class NoCacheStaticFiles(StaticFiles):
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/", NoCacheStaticFiles(
+    directory=str(Path(__file__).resolve().parent.parent / "static"),
+    html=True), name="static")

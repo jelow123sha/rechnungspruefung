@@ -16,9 +16,12 @@ const commentInput = document.getElementById("comment");
 const approvalMsg = document.getElementById("approval-msg");
 const btnApprove = document.getElementById("btn-approve");
 const btnSaveComment = document.getElementById("btn-save-comment");
+const stampPosition = document.getElementById("stamp-position");
 const mainArea = document.getElementById("main-area");
 const paneLeft = document.getElementById("pane-left");
 const divider = document.getElementById("divider");
+
+let currentPdfUrl = null;
 
 let mode = "open";
 let invoices = [];
@@ -67,8 +70,8 @@ function renderInvoices() {
             <td>${esc(inv.filename)}</td>
             <td>${esc(inv.sender)}</td>
             <td>${esc(inv.recipient)}</td>
-            <td>${fmtAmount(inv.amount)}</td>
-            <td>${fmtDate(inv.received_at)}</td>`;
+            <td class="num">${fmtAmount(inv.amount)}</td>
+            <td class="date">${fmtDate(inv.received_at)}</td>`;
         tr.addEventListener("click", () => selectInvoice(inv.id));
         invoiceBody.appendChild(tr);
     }
@@ -85,9 +88,9 @@ function renderHistory() {
             <td>${esc(h.filename)}</td>
             <td>${esc(h.sender)}</td>
             <td>${esc(h.recipient)}</td>
-            <td>${fmtAmount(h.amount)}</td>
-            <td>${fmtDate(h.received_at)}</td>
-            <td>${fmtDate(h.approved_at)}</td>
+            <td class="num">${fmtAmount(h.amount)}</td>
+            <td class="date">${fmtDate(h.received_at)}</td>
+            <td class="date">${fmtDate(h.approved_at)}</td>
             <td>${esc(h.approver)}</td>
             <td>${esc(h.comment)}</td>`;
         tr.addEventListener("click", () => selectHistory(h.id));
@@ -118,6 +121,19 @@ async function refreshHistory() {
     }
 }
 
+async function showPdf(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("PDF konnte nicht geladen werden (" + res.status + ")");
+        const blob = await res.blob();
+        if (currentPdfUrl) URL.revokeObjectURL(currentPdfUrl);
+        currentPdfUrl = URL.createObjectURL(blob);
+        pdfView.src = currentPdfUrl;
+    } catch (err) {
+        statusEl.textContent = err.message;
+    }
+}
+
 function clearSelection() {
     selectedId = null;
     pdfView.classList.add("hidden");
@@ -134,7 +150,7 @@ function selectInvoice(id) {
     renderInvoices();
     viewerEmpty.classList.add("hidden");
     pdfView.classList.remove("hidden");
-    pdfView.src = `/api/invoices/${id}/file`;
+    showPdf(`/api/invoices/${id}/file`);
     approvalTitle.textContent = `Freigabe: ${inv.filename}`;
     commentInput.value = inv.comment || "";
     approvalMsg.textContent = "";
@@ -147,7 +163,7 @@ function selectHistory(id) {
     renderHistory();
     viewerEmpty.classList.add("hidden");
     pdfView.classList.remove("hidden");
-    pdfView.src = `/api/history/${id}/file`;
+    showPdf(`/api/history/${id}/file`);
     approvalPanel.classList.add("hidden");
 }
 
@@ -187,7 +203,8 @@ async function approve() {
         const result = await api(`/api/invoices/${selectedId}/approve`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ approver, comment: commentInput.value })
+            body: JSON.stringify({ approver, comment: commentInput.value,
+                                   position: stampPosition.value })
         });
         localStorage.setItem("invoiceApprover", approver);
         selectedId = null;
@@ -223,6 +240,7 @@ btnSaveComment.addEventListener("click", saveComment);
 let dragging = false;
 divider.addEventListener("mousedown", (e) => {
     dragging = true;
+    document.body.style.userSelect = "none";
     document.body.style.cursor = "col-resize";
     e.preventDefault();
 });
@@ -237,6 +255,7 @@ window.addEventListener("mouseup", () => {
     if (!dragging) return;
     dragging = false;
     document.body.style.cursor = "";
+    document.body.style.userSelect = "";
     localStorage.setItem("paneWidth", paneLeft.style.width);
 });
 

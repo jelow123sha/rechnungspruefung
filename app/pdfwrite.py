@@ -34,13 +34,21 @@ def _wrap(text: str, max_chars: int) -> list[str]:
     return lines
 
 
-def _overlay_pdf(width: float, height: float, lines: list[str]) -> bytes:
+def _overlay_pdf(width: float, height: float, lines: list[str],
+                 position: str = "bottom-left") -> bytes:
     margin = 30
     box_w = min(540.0, width - 2 * margin)
     box_h = 16 + LINE_HEIGHT * len(lines)
     if box_h > height - 2 * margin:
         box_h = height - 2 * margin
-    x, y = margin, margin
+    if position == "bottom-right":
+        x, y = max(margin, width - margin - box_w), margin
+    elif position == "top-left":
+        x, y = margin, height - margin - box_h
+    elif position == "top-right":
+        x, y = max(margin, width - margin - box_w), height - margin - box_h
+    else:
+        x, y = margin, margin
 
     max_chars = max(20, int((box_w - 16) / AVG_CHAR_WIDTH))
     stream_lines: list[str] = [
@@ -85,7 +93,7 @@ def _overlay_pdf(width: float, height: float, lines: list[str]) -> bytes:
 
 
 def write_approval_stamp(src: Path, dst: Path, approver: str, comment: str,
-                         when: datetime) -> None:
+                         when: datetime, position: str = "bottom-left") -> None:
     writer = PdfWriter(clone_from=str(src))
     page = writer.pages[0]
     box = page.mediabox
@@ -98,8 +106,12 @@ def write_approval_stamp(src: Path, dst: Path, approver: str, comment: str,
         lines.append("")
         lines.extend(_wrap("Kommentar: " + comment, 95))
 
-    overlay = PdfReader(io.BytesIO(_overlay_pdf(width, height, lines)))
-    page.merge_page(overlay.pages[0])
+    if position == "last-page":
+        overlay = PdfReader(io.BytesIO(_overlay_pdf(width, height, lines, "top-left")))
+        writer.add_page(overlay.pages[0])
+    else:
+        overlay = PdfReader(io.BytesIO(_overlay_pdf(width, height, lines, position)))
+        page.merge_page(overlay.pages[0])
 
     writer.add_metadata(
         {
