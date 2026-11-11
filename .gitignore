@@ -1,0 +1,7 @@
+__pycache__/
+venv/
+daten/
+eingang/
+archiv/
+config.json
+*.pyc

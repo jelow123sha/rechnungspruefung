@@ -1,0 +1,7 @@
+{
+    "input_dir": "\\\\SERVER\\Freigabe\\Rechnungen\\Eingang",
+    "archive_dir": "\\\\SERVER\\Freigabe\\Rechnungen\\Archiv",
+    "db_path": "daten/rechnungen.db",
+    "host": "0.0.0.0",
+    "port": 8000
+}
