@@ -1,7 +1,13 @@
-"""Extraktion von Rechnungsdaten (Steller, Empfaenger, Betrag, Eingangsdatum) aus PDFs."""
+"""Extraktion von Rechnungsdaten (Steller, Empfaenger, Betrag, Eingangsdatum) aus PDFs.
+
+Vorrang werden strukturierte E-Rechnungs-Daten (ZUGFeRD / Factur-X / XRechnung)
+aus der in die PDF eingebetteten XML-Datei gelesen. Fehlt diese, wird der
+sichtbare Text der PDF per Textmustern ausgewertet.
+"""
 from __future__ import annotations
 
 import re
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,6 +51,50 @@ AMOUNT_KEYWORDS_LOW = ["brutto", "gesamt", "total", "summe"]
 AMOUNT_RE = re.compile(
     r"(?<![0-9.,])(\d{1,3}(?:[.\s]\d{3})*[,.]\d{2})(?![0-9])\s*(?:€|EUR|eur)?"
 )
+
+AMOUNT_XML_TAGS = ("GrandTotalAmount", "DuePayableAmount", "PayableAmount")
+
+
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _parse_xml_fields(xml_bytes: bytes) -> dict:
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError:
+        return {}
+    fields: dict = {}
+    for elem in root.iter():
+        name = _local(elem.tag)
+        if name in ("SellerTradeParty", "AccountingSupplierParty") and "seller" not in fields:
+            for sub in elem.iter():
+                if _local(sub.tag) == "Name" and sub.text and sub.text.strip():
+                    fields["seller"] = sub.text.strip()
+                    break
+        elif name in ("BuyerTradeParty", "AccountingCustomerParty") and "buyer" not in fields:
+            for sub in elem.iter():
+                if _local(sub.tag) == "Name" and sub.text and sub.text.strip():
+                    fields["buyer"] = sub.text.strip()
+                    break
+        elif name in AMOUNT_XML_TAGS and "amount" not in fields:
+            try:
+                fields["amount"] = float(elem.text.strip().replace(",", "."))
+            except (ValueError, AttributeError):
+                continue
+    return fields
+
+
+def _embedded_xml_data(reader: PdfReader) -> dict:
+    attachments = getattr(reader, "attachments", None) or {}
+    for name, parts in attachments.items():
+        if not str(name).lower().endswith(".xml"):
+            continue
+        data = parts[0] if isinstance(parts, (list, tuple)) else parts
+        fields = _parse_xml_fields(data)
+        if fields:
+            return fields
+    return {}
 
 
 def _clean(value: str) -> str:
@@ -124,10 +174,17 @@ def extract_invoice_data(path: Path) -> dict:
         except Exception:
             continue
     lines = [line for line in "\n".join(parts).splitlines() if line.strip()]
-    amount = _find_amount(lines)
+
+    xml_fields = _embedded_xml_data(reader)
+    sender = xml_fields.get("seller") or _find_labeled(lines, SENDER_PATTERNS)
+    recipient = xml_fields.get("buyer") or _find_labeled(lines, RECIPIENT_PATTERNS)
+    amount = xml_fields.get("amount")
+    if amount is None:
+        amount = _find_amount(lines)
+
     return {
-        "sender": _find_labeled(lines, SENDER_PATTERNS),
-        "recipient": _find_labeled(lines, RECIPIENT_PATTERNS),
+        "sender": sender,
+        "recipient": recipient,
         "amount": amount,
         "received_at": _received_at(reader, path),
     }

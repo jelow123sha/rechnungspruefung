@@ -76,4 +76,32 @@ make_pdf(
     "D:20250220141500",
 )
 
+# ZUGFeRD-ahnliche E-Rechnung: kaum sichtbarer Text, Daten in eingebetteter XML
+make_pdf(
+    INPUT / "EB-2025-088_elektro_bauer.pdf",
+    ["Elektronische Rechnung EB-2025-088", "Siehe eingebettete XRechnung (XML)."],
+    "D:20250310091500",
+)
+CII_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100">
+  <rsm:SupplyChainTradeTransaction>
+    <ram:ApplicableHeaderTradeAgreement>
+      <ram:SellerTradeParty><ram:Name>Elektro Bauer GmbH</ram:Name></ram:SellerTradeParty>
+      <ram:BuyerTradeParty><ram:Name>Stadt Musterhausen</ram:Name></ram:BuyerTradeParty>
+    </ram:ApplicableHeaderTradeAgreement>
+    <ram:ApplicableHeaderTradeSettlement>
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        <ram:TaxBasisTotalAmount>1200.00</ram:TaxBasisTotalAmount>
+        <ram:GrandTotalAmount>1428.00</ram:GrandTotalAmount>
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:ApplicableHeaderTradeSettlement>
+  </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>
+"""
+from pypdf import PdfReader, PdfWriter
+writer = PdfWriter(clone_from=str(INPUT / "EB-2025-088_elektro_bauer.pdf"))
+writer.add_attachment("factur-x.xml", CII_XML.encode("utf-8"))
+with open(INPUT / "EB-2025-088_elektro_bauer.pdf", "wb") as fh:
+    writer.write(fh)
+
 print("Test-PDFs erstellt:", [p.name for p in INPUT.glob('*.pdf')])

@@ -16,43 +16,38 @@
         <span id="status"></span>
     </header>
 
-    <main>
-        <section id="pane-list" class="pane-list">
-            <table id="invoice-table">
-                <thead>
-                    <tr>
-                        <th>Datei</th>
-                        <th>Rechnungssteller</th>
-                        <th>Empfänger</th>
-                        <th>Brutto</th>
-                        <th>Eingang</th>
-                    </tr>
-                </thead>
-                <tbody id="invoice-body"></tbody>
-            </table>
+    <main id="main-area">
+        <section id="pane-left" class="pane-left">
+            <div class="pane-list">
+                <table id="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>Datei</th>
+                            <th>Rechnungssteller</th>
+                            <th>Empfänger</th>
+                            <th>Brutto</th>
+                            <th>Eingang</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoice-body"></tbody>
+                </table>
 
-            <table id="history-table" class="hidden">
-                <thead>
-                    <tr>
-                        <th>Datei</th>
-                        <th>Rechnungssteller</th>
-                        <th>Empfänger</th>
-                        <th>Brutto</th>
-                        <th>Eingang</th>
-                        <th>Freigegeben am</th>
-                        <th>Prüfer</th>
-                        <th>Kommentar</th>
-                    </tr>
-                </thead>
-                <tbody id="history-body"></tbody>
-            </table>
-        </section>
-
-        <section id="pane-view" class="pane-view">
-            <div id="viewer-empty" class="viewer-empty">
-                <p>Rechnung aus der Liste auswählen, um sie hier anzuzeigen.</p>
+                <table id="history-table" class="hidden">
+                    <thead>
+                        <tr>
+                            <th>Datei</th>
+                            <th>Rechnungssteller</th>
+                            <th>Empfänger</th>
+                            <th>Brutto</th>
+                            <th>Eingang</th>
+                            <th>Freigegeben am</th>
+                            <th>Prüfer</th>
+                            <th>Kommentar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body"></tbody>
+                </table>
             </div>
-            <iframe id="pdf-view" class="hidden" title="Rechnungsvorschau"></iframe>
 
             <div id="approval-panel" class="approval-panel hidden">
                 <h2 id="approval-title">Freigabe</h2>
@@ -66,6 +61,15 @@
                 </div>
                 <p id="approval-msg" class="msg"></p>
             </div>
+        </section>
+
+        <div id="divider" title="Ziehen, um die Breite anzupassen"></div>
+
+        <section id="pane-view" class="pane-view">
+            <div id="viewer-empty" class="viewer-empty">
+                <p>Rechnung aus der Liste auswählen, um sie hier anzuzeigen.</p>
+            </div>
+            <iframe id="pdf-view" class="hidden" title="Rechnungsvorschau"></iframe>
         </section>
     </main>
 

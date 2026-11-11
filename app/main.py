@@ -73,7 +73,9 @@ def invoice_file(invoice_id: int) -> FileResponse:
     path = Path(invoice["filepath"])
     if not path.exists():
         raise HTTPException(status_code=410, detail="Datei existiert nicht mehr")
-    return FileResponse(path, media_type="application/pdf", filename=invoice["filename"])
+    return FileResponse(path, media_type="application/pdf",
+                        filename=invoice["filename"],
+                        content_disposition_type="inline")
 
 
 @app.post("/api/invoices/{invoice_id}/comment")
@@ -153,7 +155,9 @@ def history_file(entry_id: int) -> FileResponse:
     path = Path(entry["archive_path"])
     if not path.exists():
         raise HTTPException(status_code=410, detail="Archivdatei existiert nicht mehr")
-    return FileResponse(path, media_type="application/pdf", filename=entry["filename"])
+    return FileResponse(path, media_type="application/pdf",
+                        filename=entry["filename"],
+                        content_disposition_type="inline")
 
 
 app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "static"),

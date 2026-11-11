@@ -16,6 +16,9 @@ const commentInput = document.getElementById("comment");
 const approvalMsg = document.getElementById("approval-msg");
 const btnApprove = document.getElementById("btn-approve");
 const btnSaveComment = document.getElementById("btn-save-comment");
+const mainArea = document.getElementById("main-area");
+const paneLeft = document.getElementById("pane-left");
+const divider = document.getElementById("divider");
 
 let mode = "open";
 let invoices = [];
@@ -23,6 +26,8 @@ let history = [];
 let selectedId = null;
 
 approverInput.value = localStorage.getItem("invoiceApprover") || "";
+const savedWidth = localStorage.getItem("paneWidth");
+if (savedWidth) paneLeft.style.width = savedWidth;
 
 function fmtAmount(value) {
     if (value === null || value === undefined) return "–";
@@ -185,8 +190,6 @@ async function approve() {
             body: JSON.stringify({ approver, comment: commentInput.value })
         });
         localStorage.setItem("invoiceApprover", approver);
-        approvalMsg.className = "msg ok";
-        approvalMsg.textContent = `Freigegeben und archiviert: ${result.archive_path}`;
         selectedId = null;
         await refreshPending();
         clearSelection();
@@ -216,6 +219,26 @@ tabOpen.addEventListener("click", () => setMode("open"));
 tabHistory.addEventListener("click", () => setMode("history"));
 btnApprove.addEventListener("click", approve);
 btnSaveComment.addEventListener("click", saveComment);
+
+let dragging = false;
+divider.addEventListener("mousedown", (e) => {
+    dragging = true;
+    document.body.style.cursor = "col-resize";
+    e.preventDefault();
+});
+window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const rect = mainArea.getBoundingClientRect();
+    let pct = ((e.clientX - rect.left) / rect.width) * 100;
+    pct = Math.min(80, Math.max(15, pct));
+    paneLeft.style.width = pct + "%";
+});
+window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = "";
+    localStorage.setItem("paneWidth", paneLeft.style.width);
+});
 
 refreshPending();
 setInterval(refreshPending, 15000);

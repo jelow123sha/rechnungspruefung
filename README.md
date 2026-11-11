@@ -6,18 +6,24 @@ Netzlaufwerk – für mehrere Nutzer gleichzeitig im Firmennetzwerk.
 ## Funktionen
 
 - **Rechnungsliste:** PDFs aus dem Eingangsordner werden automatisch eingelesen.
-  Angezeigt werden (soweit in der PDF erkennbar) Rechnungssteller, Empfänger,
-  Bruttobetrag und Eingangsdatum (Erstell-/Änderungsdatum der PDF-Datei).
+  Angezeigt werden Rechnungssteller, Empfänger, Bruttobetrag und Eingangsdatum
+  (Erstell-/Änderungsdatum der PDF-Datei). Bei E-Rechnungen nach
+  **ZUGFeRD / Factur-X / XRechnung** werden die Daten direkt aus der eingebetteten
+  XML-Datei gelesen; sonst per Texterkennung aus dem PDF-Inhalt.
 - **Vorschau:** Klick auf eine Rechnung zeigt die PDF im rechten Bereich.
 - **Kommentare:** Der Nutzer kann einen Kommentar speichern; bei der Freigabe
-  wird der Kommentar dauerhaft in die PDF-Datei geschrieben (Annotation auf
-  Seite 1) und in der Historie abgelegt.
+  wird der Kommentar dauerhaft in die PDF-Datei geschrieben (grüner Vermerk
+  unten auf Seite 1, in jedem PDF-Betrachter sichtbar) und in der Historie
+  abgelegt.
 - **Freigabe (Pflichtfeld Name):** Ohne Eingabe des Prüfer-Namens ist keine
   Freigabe möglich. Die Datei wird in den Archiv-Ordner verschoben, verschwindet
   aus der Liste und erscheint unter **Historische Freigaben** mit Prüfer,
   Kommentar, Zeitstempel und Archivpfad.
 - **Mehrere Nutzer:** Gleichzeitige Nutzung mehrerer Nutzer im Netzwerk wird
   unterstützt (SQLite im WAL-Modus, Listen-Aktualisierung alle 15 Sekunden).
+- **Flexibles Layout:** Die PDF-Vorschau rechts kann per ziehbarer Trennlinie
+  vergrößert werden; der Freigabe-Bereich liegt links unter der Liste. Die
+  gewählte Breite wird im Browser gespeichert.
 
 ## Installation
 
