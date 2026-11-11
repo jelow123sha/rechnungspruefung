@@ -25,6 +25,14 @@ db = Database(config.db_path)
 app = FastAPI(title="Rechnungsprüfung")
 
 
+@app.middleware("http")
+async def no_store_api(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 STAMP_POSITIONS = ("bottom-left", "bottom-right", "top-left", "top-right",
                    "last-page")
 

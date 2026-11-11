@@ -127,7 +127,7 @@ async function refreshHistory() {
 
 async function showPdf(url) {
     try {
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error("PDF konnte nicht geladen werden (" + res.status + ")");
         const blob = await res.blob();
         if (currentPdfUrl) URL.revokeObjectURL(currentPdfUrl);
