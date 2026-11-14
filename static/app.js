@@ -21,6 +21,7 @@ const mergeBox = document.getElementById("merge-box");
 const mergeSelect = document.getElementById("merge-select");
 const btnMerge = document.getElementById("btn-merge");
 const mergeTarget = document.getElementById("merge-target");
+const copyApproverDir = document.getElementById("copy-approver-dir");
 const mainArea = document.getElementById("main-area");
 const paneLeft = document.getElementById("pane-left");
 const divider = document.getElementById("divider");
@@ -33,6 +34,7 @@ let history = [];
 let selectedId = null;
 
 approverInput.value = localStorage.getItem("invoiceApprover") || "";
+copyApproverDir.checked = localStorage.getItem("copyApproverDir") !== "off";
 const savedWidth = localStorage.getItem("paneWidth");
 if (savedWidth) paneLeft.style.width = savedWidth;
 
@@ -260,14 +262,19 @@ async function approve() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ approver, comment: commentInput.value,
-                                   position: stampPosition.value })
+                                   position: stampPosition.value,
+                                   copy_to_approver: copyApproverDir.checked })
         });
         localStorage.setItem("invoiceApprover", approver);
+        localStorage.setItem("copyApproverDir", copyApproverDir.checked ? "on" : "off");
         selectedId = null;
         await refreshPending();
         clearSelection();
-        approvalMsg.className = "msg ok";
-        approvalMsg.textContent = `Freigegeben und archiviert: ${result.archive_path}`;
+        approvalMsg.className = result.warning ? "msg error" : "msg ok";
+        approvalMsg.textContent = result.warning ||
+            (result.approver_copy
+                ? `Freigegeben und archiviert: ${result.archive_path} · Kopie: ${result.approver_copy}`
+                : `Freigegeben und archiviert: ${result.archive_path}`);
     } catch (err) {
         approvalMsg.className = "msg error";
         approvalMsg.textContent = err.message;

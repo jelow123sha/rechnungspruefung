@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rechnungsprüfung</title>
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
     <header>
@@ -55,6 +55,10 @@
                 <input id="approver" type="text" placeholder="Ihr Name" autocomplete="name">
                 <label for="comment">Kommentar:</label>
                 <textarea id="comment" rows="4" placeholder="Anmerkung zur Rechnung (optional, wird in die PDF geschrieben)"></textarea>
+                <label class="checkbox">
+                    <input type="checkbox" id="copy-approver-dir" checked>
+                    Zusätzlich Kopie im Prüfer-Ordner (Archiv\&lt;Prüfer&gt;)
+                </label>
                 <label for="stamp-position">Position des Freigabe-Vermerks in der PDF:</label>
                 <select id="stamp-position">
                     <option value="bottom-left">Unten links</option>
@@ -89,6 +93,6 @@
         </section>
     </main>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>

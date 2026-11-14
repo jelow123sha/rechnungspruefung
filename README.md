@@ -20,6 +20,12 @@ Netzlaufwerk – für mehrere Nutzer gleichzeitig im Firmennetzwerk.
   Freigabe möglich. Die Datei wird in den Archiv-Ordner verschoben, verschwindet
   aus der Liste und erscheint unter **Historische Freigaben** mit Prüfer,
   Kommentar, Zeitstempel und Archivpfad.
+- **Prüfer-Ordner (Haken, standardmäßig aktiv):** Zusätzlich zum Archiv-Ordner
+  wird die geprüfte Datei in einen Unterordner mit dem Namen des Prüfenden
+  kopiert (z. B. `Archiv\Anna Müller\rechnung.pdf`). Ist der Ordner nicht
+  vorhanden, wird er automatisch angelegt; ist er vorhanden, wird er
+  verwendet. Der Haken lässt sich vor jeder Freigabe deaktivieren und wird
+  pro Browser gemerkt.
 - **Mehrere Nutzer:** Gleichzeitige Nutzung mehrerer Nutzer im Netzwerk wird
   unterstützt (SQLite im WAL-Modus, Listen-Aktualisierung alle 15 Sekunden).
 - **Flexibles Layout:** Die PDF-Vorschau rechts kann per ziehbarer Trennlinie

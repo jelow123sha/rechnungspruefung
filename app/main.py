@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import tempfile
 import traceback
@@ -45,10 +46,17 @@ class ApprovePayload(BaseModel):
     approver: str
     comment: str = ""
     position: str = "bottom-left"
+    copy_to_approver: bool = False
 
 
 class MergePayload(BaseModel):
     other_id: int
+
+
+def _safe_dirname(name: str) -> str:
+    """Pruefer-Namen als Ordnernamen aufbereiten (Windows-ungueltige Zeichen raus)."""
+    cleaned = re.sub(r'[\\/:*?"<>|]', "_", name).strip().strip(".")
+    return cleaned or "Unbenannt"
 
 
 def _scan() -> int:
@@ -147,6 +155,22 @@ def approve_invoice(invoice_id: int, payload: ApprovePayload) -> dict:
         raise HTTPException(status_code=500,
                             detail="Archivierung fehlgeschlagen (Netzlaufwerk prüfen).")
 
+    approver_copy: str | None = None
+    warning: str | None = None
+    if payload.copy_to_approver:
+        try:
+            approver_dir = config.archive_dir / _safe_dirname(approver)
+            approver_dir.mkdir(parents=True, exist_ok=True)
+            copy_dest = approver_dir / dest.name
+            if copy_dest.exists():
+                copy_dest = approver_dir / f"{dest.stem}_{now:%Y%m%d-%H%M%S}{dest.suffix}"
+            shutil.copyfile(dest, copy_dest)
+            approver_copy = str(copy_dest)
+        except Exception:
+            traceback.print_exc()
+            warning = ("Die Kopie in den Prüfer-Ordner konnte nicht erstellt werden "
+                       "(Netzlaufwerk prüfen). Die Rechnung wurde trotzdem archiviert.")
+
     db.record_approval(
         {
             "filename": invoice["filename"],
@@ -161,7 +185,10 @@ def approve_invoice(invoice_id: int, payload: ApprovePayload) -> dict:
         }
     )
     db.delete_invoice(invoice_id)
-    return {"ok": True, "archive_path": str(dest)}
+    result = {"ok": True, "archive_path": str(dest), "approver_copy": approver_copy}
+    if warning:
+        result["warning"] = warning
+    return result
 
 
 @app.post("/api/invoices/{invoice_id}/merge")
