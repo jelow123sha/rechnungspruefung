@@ -26,7 +26,10 @@ const mainArea = document.getElementById("main-area");
 const paneLeft = document.getElementById("pane-left");
 const divider = document.getElementById("divider");
 
-let currentPdfUrl = null;
+// Eindeutiger Sitzungs-Schluessel fuer die "bearbeitet von"-Anzeige
+const SESSION = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "s-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+let editingTimer = null;
+let editingOthers = [];
 
 let mode = "open";
 let invoices = [];
@@ -72,8 +75,13 @@ function renderInvoices() {
         const tr = document.createElement("tr");
         tr.dataset.id = inv.id;
         if (inv.id === selectedId) tr.classList.add("selected");
+        const editNames = (inv.editing || []).map(e => e.name);
+        const editMark = editNames.length
+            ? ` <span class="edit-chip" title="Bearbeitet von ${esc(editNames.join(", "))}">✏ ${esc(editNames.join(", "))}</span>` : "";
+        const dupMark = (inv.duplicates && inv.duplicates.length)
+            ? ` <span class="dup-chip" title="Gleicher Rechnungssteller und gleicher Betrag wie ${esc(inv.duplicates.join(", "))}">⚠ Doppelt?</span>` : "";
         tr.innerHTML = `
-            <td>${esc(inv.filename)}</td>
+            <td>${esc(inv.filename)}${editMark}${dupMark}</td>
             <td>${esc(inv.sender)}</td>
             <td>${esc(inv.recipient)}</td>
             <td class="num">${fmtAmount(inv.amount)}</td>
@@ -142,11 +150,14 @@ async function showPdf(url) {
 
 function clearSelection() {
     selectedId = null;
+    stopEditingBeat();
     pdfView.classList.add("hidden");
     pdfView.src = "about:blank";
     viewerEmpty.classList.remove("hidden");
     approvalPanel.classList.add("hidden");
     approvalMsg.textContent = "";
+    const dupEl = document.getElementById("dup-warning");
+    if (dupEl) dupEl.classList.add("hidden");
 }
 
 function pagesLabel(inv) {
@@ -170,6 +181,41 @@ function populateMergeOptions(inv) {
     }
 }
 
+function editingBeat(inv) {
+    api("/api/editing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoice_id: inv.id, editor: approverInput.value.trim(), session: SESSION })
+    }).then(res => {
+        if (selectedId !== inv.id) return;
+        editingOthers = res.others || [];
+        const el = document.getElementById("editing-info");
+        if (!el) return;
+        if (editingOthers.length) {
+            const parts = editingOthers.map(o => o.name + (o.seconds > 15 ? ` (vor ${o.seconds}s)` : ""));
+            el.textContent = "✏ Bearbeitet von: " + parts.join(", ") + " – Freigabe ist solange gesperrt.";
+            el.classList.remove("hidden");
+            document.getElementById("btn-approve").disabled = true;
+        } else {
+            el.classList.add("hidden");
+            if (btnApprove.disabled) btnApprove.disabled = false;
+        }
+    }).catch(() => { /* Heartbeat-Fehler ignorieren */ });
+}
+
+function startEditingBeat(inv) {
+    stopEditingBeat();
+    editingBeat(inv);
+    editingTimer = setInterval(() => editingBeat(inv), 8000);
+}
+
+function stopEditingBeat() {
+    if (editingTimer) { clearInterval(editingTimer); editingTimer = null; }
+    editingOthers = [];
+    const el = document.getElementById("editing-info");
+    if (el) { el.classList.add("hidden"); el.textContent = ""; }
+}
+
 function selectInvoice(id) {
     selectedId = id;
     const inv = invoices.find(i => i.id === id);
@@ -184,6 +230,17 @@ function selectInvoice(id) {
     approvalPanel.classList.remove("hidden");
     approverInput.classList.remove("invalid");
     populateMergeOptions(inv);
+    const dupEl = document.getElementById("dup-warning");
+    if (dupEl) {
+        if (inv.duplicates && inv.duplicates.length) {
+            dupEl.textContent = "⚠ Mögliches Duplikat: gleicher Rechnungssteller und gleicher Betrag wie "
+                + inv.duplicates.map(n => `"${n}"`).join(", ") + " (innerhalb von 21 Tagen). Bitte überprüfen, ob diese Rechnung schon eingereicht wurde.";
+            dupEl.classList.remove("hidden");
+        } else {
+            dupEl.classList.add("hidden");
+        }
+    }
+    startEditingBeat(inv);
 }
 
 function selectHistory(id) {
@@ -256,7 +313,19 @@ async function approve() {
     }
     const inv = invoices.find(i => i.id === selectedId);
     if (!inv) return;
-    if (!confirm(`Rechnung "${inv.filename}" wirklich freigeben und ins Archiv verschieben?`)) return;
+    if (editingTimer) editingBeat(inv);  // aktuellen Stand holen
+    const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    const blockers = editingOthers.filter(o => !approver || !sameName(o.name, approver));
+    if (blockers.length) {
+        approvalMsg.className = "msg error";
+        approvalMsg.textContent = "Diese Rechnung wird gerade von "
+            + blockers.map(o => `"${o.name}"`).join(", ") + " bearbeitet. Sie kann gerade nicht freigegeben werden.";
+        return;
+    }
+    const dupNote = (inv.duplicates && inv.duplicates.length)
+        ? `\n\nACHTUNG: Mögliches Duplikat (gleicher Rechnungssteller und gleicher Betrag wie ${inv.duplicates.map(n => `"${n}"`).join(", ")}).`
+        : "";
+    if (!confirm(`Rechnung "${inv.filename}" wirklich freigeben und ins Archiv verschieben?${dupNote}`)) return;
 
     btnApprove.disabled = true;
     try {

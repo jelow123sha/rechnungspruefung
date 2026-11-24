@@ -5,6 +5,8 @@ import os
 import re
 import shutil
 import tempfile
+import threading
+import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +40,25 @@ STAMP_POSITIONS = ("bottom-left", "bottom-right", "top-left", "top-right",
                    "last-page")
 
 
+# --- Live-Anzeige "bearbeitet von" (im Speicher, pro Server-Prozess) ---
+EDITING_TTL = 30  # Sekunden, nach denen ein Eintrag als inaktiv gilt
+_editing: dict[int, dict[str, dict]] = {}  # invoice_id -> {session: {name, ts}}
+_editing_lock = threading.Lock()
+
+
+def _active_editors(invoice_id: int, now: float | None = None,
+                    exclude_session: str | None = None) -> list[dict]:
+    now = now if now is not None else time.time()
+    slot = _editing.get(invoice_id) or {}
+    return sorted(
+        ({"name": v["name"] or "Unbekannt", "seconds": int(now - v["ts"]),
+          "session": ses}
+         for ses, v in slot.items()
+         if now - v["ts"] <= EDITING_TTL and ses != exclude_session),
+        key=lambda e: e["name"].lower(),
+    )
+
+
 class CommentPayload(BaseModel):
     comment: str = ""
 
@@ -51,6 +72,12 @@ class ApprovePayload(BaseModel):
 
 class MergePayload(BaseModel):
     other_id: int
+
+
+class EditingPayload(BaseModel):
+    invoice_id: int
+    editor: str = ""
+    session: str
 
 
 def _safe_dirname(name: str) -> str:
@@ -70,7 +97,8 @@ def _scan() -> int:
         if not path.is_file() or path.suffix.lower() != ".pdf":
             continue
         try:
-            data = extract_invoice_data(path)
+            data = extract_invoice_data(path, ocr_enabled=config.ocr_enabled,
+                                        ocr_lang=config.ocr_lang)
         except Exception:
             data = {"sender": None, "recipient": None, "amount": None,
                     "received_at": datetime.fromtimestamp(
@@ -91,10 +119,88 @@ def _scan() -> int:
     return db.scan_insert(entries)
 
 
+DUPLICATE_WINDOW_DAYS = 21
+
+
+def _parse_ts(raw: str | None):
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw).replace(tzinfo=None)
+    except (TypeError, ValueError):
+        return None
+
+
+def _find_duplicates(invoices: list[dict]) -> dict[int, list[str]]:
+    """Gruppiert nach (Rechnungssteller, Bruttobetrag) innerhalb eines Zeitfensters.
+
+    Zwei PDFs mit identischem Steller und identischem Betrag, deren Eingang
+    weniger als DUPLICATE_WINDOW_DAYS Tage auseinander liegt, gelten als
+    moegliche Dubletten (z. B. doppelt eingereichte Handwerkerrechnung).
+    """
+    items = []
+    for inv in invoices:
+        if inv.get("amount") is None or not inv.get("sender"):
+            continue
+        ts = _parse_ts(inv.get("received_at")) or _parse_ts(inv.get("added_at"))
+        if ts is None:
+            continue
+        try:
+            amount = round(float(inv["amount"]), 2)
+        except (TypeError, ValueError):
+            continue
+        items.append((inv["id"], inv["sender"].strip().lower(), amount, ts,
+                      inv["filename"]))
+    result: dict[int, list[str]] = {}
+    window = DUPLICATE_WINDOW_DAYS * 86400
+    for a in items:
+        dupes = [b[4] for b in items
+                 if b[0] != a[0] and b[1] == a[1] and b[2] == a[2]
+                 and abs((a[3] - b[3]).total_seconds()) <= window]
+        if dupes:
+            result[a[0]] = sorted(dupes)
+    return result
+
+
 @app.get("/api/invoices")
 def list_invoices() -> dict:
     added = _scan()
-    return {"invoices": db.list_pending(), "added": added}
+    invoices = db.list_pending()
+    dup_map = _find_duplicates(invoices)
+    now = time.time()
+    with _editing_lock:
+        for inv in invoices:
+            others = _active_editors(inv["id"], now=now)
+            inv["editing"] = [{"name": e["name"], "seconds": e["seconds"]}
+                              for e in others]
+            inv["duplicates"] = dup_map.get(inv["id"], [])
+        # Abgelaufene Eintraege entfernen
+        for iid in list(_editing):
+            alive = {s: v for s, v in _editing[iid].items()
+                     if now - v["ts"] <= EDITING_TTL}
+            if alive:
+                _editing[iid] = alive
+            else:
+                _editing.pop(iid)
+    return {"invoices": invoices, "added": added}
+
+
+@app.post("/api/editing")
+def register_editing(payload: EditingPayload) -> dict:
+    """Herzschlag des Frontends: meldet, dass der Nutzer eine Rechnung offen hat.
+
+    Antwort enthaelt alle ANDEREN aktiven Bearbeiter derselben Rechnung.
+    """
+    if payload.invoice_id <= 0:
+        raise HTTPException(status_code=400, detail="Ungueltige Rechnungs-ID")
+    now = time.time()
+    with _editing_lock:
+        slot = _editing.setdefault(payload.invoice_id, {})
+        slot[payload.session] = {"name": payload.editor.strip(), "ts": now}
+        others = [{"name": e["name"], "seconds": e["seconds"]}
+                  for e in _active_editors(payload.invoice_id, now=now,
+                                           exclude_session=payload.session)]
+    return {"ok": True, "others": others}
 
 
 @app.get("/api/invoices/{invoice_id}/file")

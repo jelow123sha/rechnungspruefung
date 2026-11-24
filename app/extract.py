@@ -2,7 +2,8 @@
 
 Vorrang werden strukturierte E-Rechnungs-Daten (ZUGFeRD / Factur-X / XRechnung)
 aus der in die PDF eingebetteten XML-Datei gelesen. Fehlt diese, wird der
-sichtbare Text der PDF per Textmustern ausgewertet.
+sichtbare Text der PDF per Textmustern ausgewertet. Fuer gescannte PDFs
+ohne Textebene wird zusaetzlich OCR (Tesseract) benutzt, sofern installiert.
 """
 from __future__ import annotations
 
@@ -14,6 +15,9 @@ from pathlib import Path
 from pypdf import PdfReader
 
 MAX_PAGES_TEXT = 3
+MAX_PAGES_OCR = 2
+# Unterhalb dieser Textlaenge gilt eine PDF als Scan -> OCR versuchen
+MIN_TEXT_CHARS = 120
 
 SENDER_PATTERNS = [
     r"^\s*Rechnungssteller\s*[:\-]\s*(.+)$",
@@ -165,7 +169,8 @@ def _received_at(reader: PdfReader, path: Path) -> str:
     return created.isoformat()
 
 
-def extract_invoice_data(path: Path) -> dict:
+def extract_invoice_data(path: Path, ocr_enabled: bool = True,
+                         ocr_lang: str = "deu+eng") -> dict:
     reader = PdfReader(str(path))
     parts: list[str] = []
     for page in reader.pages[:MAX_PAGES_TEXT]:
@@ -173,7 +178,7 @@ def extract_invoice_data(path: Path) -> dict:
             parts.append(page.extract_text() or "")
         except Exception:
             continue
-    lines = [line for line in "\n".join(parts).splitlines() if line.strip()]
+    lines = [line for ptxt in parts for line in ptxt.splitlines() if line.strip()]
 
     xml_fields = _embedded_xml_data(reader)
     sender = xml_fields.get("seller") or _find_labeled(lines, SENDER_PATTERNS)
@@ -181,6 +186,19 @@ def extract_invoice_data(path: Path) -> dict:
     amount = xml_fields.get("amount")
     if amount is None:
         amount = _find_amount(lines)
+
+    # OCR-Fallback fuer Scans: nur wenn Text-Heuristik zu schwach ist
+    if ocr_enabled and (sender is None or amount is None or
+                        sum(len(l) for l in lines) < MIN_TEXT_CHARS):
+        from .ocr import ocr_available, ocr_pages_text
+        if ocr_available():
+            ocr_text = ocr_pages_text(path, max_pages=MAX_PAGES_OCR, lang=ocr_lang)
+            if ocr_text:
+                ocr_lines = [l for l in ocr_text.splitlines() if l.strip()]
+                sender = sender or _find_labeled(ocr_lines, SENDER_PATTERNS)
+                recipient = recipient or _find_labeled(ocr_lines, RECIPIENT_PATTERNS)
+                if amount is None:
+                    amount = _find_amount(ocr_lines)
 
     try:
         pages = len(reader.pages)

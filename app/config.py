@@ -15,6 +15,8 @@ class Config:
     db_path: Path
     host: str
     port: int
+    ocr_enabled: bool = True
+    ocr_lang: str = "deu+eng"
 
     @staticmethod
     def load() -> "Config":
@@ -28,4 +30,6 @@ class Config:
             db_path=Path(data.get("db_path", PROJECT_ROOT / "daten" / "rechnungen.db")),
             host=str(data.get("host", "0.0.0.0")),
             port=int(data.get("port", 8000)),
+            ocr_enabled=bool(data.get("ocr_enabled", True)),
+            ocr_lang=str(data.get("ocr_lang", "deu+eng")),
         )

@@ -28,6 +28,13 @@ Netzlaufwerk – für mehrere Nutzer gleichzeitig im Firmennetzwerk.
   pro Browser gemerkt.
 - **Mehrere Nutzer:** Gleichzeitige Nutzung mehrerer Nutzer im Netzwerk wird
   unterstützt (SQLite im WAL-Modus, Listen-Aktualisierung alle 15 Sekunden).
+- **Duplikat-Erkennung:** Gleicher Rechnungssteller + gleicher Bruttobetrag
+  innerhalb von 21 Tagen = Warnhinweis in der Liste (⚠ Doppelt?) und beim
+  Auswählen der Rechnung. Fängt doppelt eingereichte Rechnungen ab.
+- **Live-Anzeige „bearbeitet von":** Wer eine Rechnung ausgewählt (bzw. das
+  Freigabe-Panel offen) hat, erscheint bei allen anderen Nutzern. Während ein
+  anderer Nutzer die Rechnung offen hat, ist die Freigabe gesperrt
+  (Herzschlag alle 8 Sekunden, nach 30 Sekunden Inaktivität automatisch frei).
 - **Flexibles Layout:** Die PDF-Vorschau rechts kann per ziehbarer Trennlinie
   vergrößert werden (Doppelklick auf die Trennlinie setzt die Standardbreite
   zurück); der Freigabe-Bereich liegt links unter der Liste. Die gewählte
@@ -43,6 +50,23 @@ Netzlaufwerk – für mehrere Nutzer gleichzeitig im Firmennetzwerk.
   werden. Bei beschädigten/passwortgeschützten PDFs bricht der Vorgang mit
   Fehlermeldung ab, ohne Dateien zu verändern.
   Mehrfaches Anhängen (weitere Belege) ist möglich.
+
+## OCR für gescannte Rechnungen (optional)
+
+Scanned PDFs ohne Textebene können per OCR erkannt werden (Rechnungssteller
+und Betrag). Dafür zusätzlich installieren:
+
+1. Python-Pakete (bereits in `requirements.txt`): `pip install pymupdf pytesseract Pillow`
+2. Tesseract-Binary:
+   - Windows: Installer von https://github.com/UB-Mannheim/tesseract/wiki
+     (Sprachpaket "German" mit installieren).
+   - Linux: `sudo apt install tesseract-ocr tesseract-ocr-deu`
+3. Falls die Sprache abweichend sein soll, in `config.json`:
+   `"ocr_lang": "deu+eng"` (Standard) bzw. OCR ganz ausschalten mit
+   `"ocr_enabled": false`.
+
+Ohne Tesseract läuft die App normal weiter – Scans werden dann nur ohne
+Steller/Betrag in der Liste geführt.
 
 ## Installation
 
