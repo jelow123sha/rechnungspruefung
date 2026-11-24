@@ -240,3 +240,11 @@ button.secondary {
 .msg.ok { color: var(--green); }
 
 .hidden { display: none !important; }
+
+
+/* --- Merge-Richtung klar kennzeichnen --- */
+.merge-row { margin-bottom: 6px; }
+.merge-tag { font-weight: 600; padding: 1px 6px; border-radius: 4px; display: inline-block; }
+.merge-tag.keep { background: #e2f3e2; color: #1c6b2d; border: 1px solid #9bd39b; }
+.merge-tag.remove { background: #fbe9e7; color: #a1352a; border: 1px solid #e0a395; }
+.merge-file { font-weight: 700; }

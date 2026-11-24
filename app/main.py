@@ -64,6 +64,9 @@ def _scan() -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     entries: list[dict] = []
     for path in sorted(config.input_dir.glob("*")):
+        # Versteckte/Temporaere Dateien (z. B. .merge_tmp_*.pdf) niemals anfassen
+        if path.name.startswith("."):
+            continue
         if not path.is_file() or path.suffix.lower() != ".pdf":
             continue
         try:
@@ -140,7 +143,7 @@ def approve_invoice(invoice_id: int, payload: ApprovePayload) -> dict:
         dest = config.archive_dir / f"{src.stem}_{now:%Y%m%d-%H%M%S}{src.suffix}"
 
     handle, tmp_name = tempfile.mkstemp(
-        suffix=".pdf", dir=str(config.archive_dir))
+        suffix=".pdf", prefix=".stempel_tmp_", dir=str(config.archive_dir))
     os.close(handle)
     tmp = Path(tmp_name)
     try:
@@ -191,6 +194,20 @@ def approve_invoice(invoice_id: int, payload: ApprovePayload) -> dict:
     return result
 
 
+BACKUP_DIR_NAME = ".merge_backup"
+
+
+def _prune_backups(backup_dir: Path, max_age_days: int = 30) -> None:
+    """Backup-Ordner impruefen: Alte Kopien (> 30 Tage) entfernen."""
+    cutoff = datetime.now().timestamp() - max_age_days * 86400
+    try:
+        for p in backup_dir.glob("*"):
+            if p.is_file() and p.stat().st_mtime < cutoff:
+                p.unlink(missing_ok=True)
+    except Exception:
+        traceback.print_exc()
+
+
 @app.post("/api/invoices/{invoice_id}/merge")
 def merge_invoice(invoice_id: int, payload: MergePayload) -> dict:
     invoice = db.get_invoice(invoice_id)
@@ -212,6 +229,23 @@ def merge_invoice(invoice_id: int, payload: MergePayload) -> dict:
         db.delete_invoice(payload.other_id)
         raise HTTPException(status_code=410,
                             detail="Die anzuhängende Datei existiert nicht mehr.")
+    try:
+        if other_path.resolve() == src.resolve():
+            raise HTTPException(status_code=400,
+                                detail="Ziel- und Quell-Datei sind identisch – es wird nichts verändert.")
+    except OSError:
+        pass
+
+    try:
+        src_pages = len(PdfReader(str(src)).pages)
+    except Exception:
+        raise HTTPException(status_code=400,
+                            detail="Die Rechnungs-PDF konnte nicht gelesen werden "
+                                   "(beschädigt oder passwortgeschützt?). Es wurde nichts verändert.")
+    if src_pages == 0:
+        raise HTTPException(status_code=400,
+                            detail="Die Ziel-PDF enthält keine lesbaren Seiten – Sicherheitsstopp, "
+                                   "es wurde nichts verändert und nichts gelöscht.")
 
     try:
         src_pages = len(PdfReader(str(src)).pages)
@@ -225,13 +259,14 @@ def merge_invoice(invoice_id: int, payload: MergePayload) -> dict:
     except Exception:
         raise HTTPException(status_code=400,
                             detail="Die anzuhängende PDF konnte nicht gelesen werden "
-                                   "(beschädigt oder passwortgeschützt?).")
+                                   "(beschädigt oder passwortgeschützt?). Es wurde nichts verändert.")
     if other_pages == 0:
         raise HTTPException(status_code=400,
                             detail="Die anzuhängende PDF enthält keine lesbaren Seiten "
                                    "(Datei wird nicht gelöscht).")
 
-    handle, tmp_name = tempfile.mkstemp(suffix=".pdf", dir=str(src.parent))
+    handle, tmp_name = tempfile.mkstemp(
+        suffix=".pdf", prefix=".merge_tmp_", dir=str(src.parent))
     os.close(handle)
     tmp = Path(tmp_name)
     try:
@@ -252,17 +287,51 @@ def merge_invoice(invoice_id: int, payload: MergePayload) -> dict:
                                    "nicht verändert. (PDF beschädigt oder "
                                    "passwortgeschützt?)")
     os.replace(tmp, src)
-    other_path.unlink(missing_ok=True)
-    db.delete_invoice(payload.other_id)
+    # Endkontrolle: Ziel-Datei muss nach dem Ersetzen vollstaendig lesbar sein.
+    try:
+        if len(PdfReader(str(src)).pages) != merged_pages:
+            raise ValueError("Ziel-Datei nach Ersetzen unvollstaendig")
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500,
+                            detail="Ziel-Datei wurde ersetzt, konnte danach aber nicht vollstaendig "
+                                   "verifiziert werden. Bitte Eingangsordner pruefen.")
+
+    # Die Quell-Datei wird NIE endgueltig geloescht, sondern in den Backup-Ordner
+    # (.merge_backup) verschoben - so bleibt sie jederzeit wiederherstellbar.
+    backup_dir = config.input_dir / BACKUP_DIR_NAME
+    backup_path: str | None = None
+    warning: str | None = None
+    try:
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        candidate = (backup_dir / f"{other_path.stem}_{datetime.now():%Y%m%d-%H%M%S}"
+                     f"{other_path.suffix}")
+        os.replace(other_path, candidate)
+        backup_path = str(candidate)
+        _prune_backups(backup_dir)
+    except Exception:
+        traceback.print_exc()
+        # Datei bleibt im Eingangsordner liegen (erscheint erneut in der Liste)
+        warning = (f"Die Quelldatei \"{other_path.name}\" konnte nicht in den "
+                   "Backup-Ordner verschoben werden (Datei evtl. von einem anderen "
+                   "Nutzer geöffnet). Sie liegt noch im Eingangsordner - das Ergebnis "
+                   "des Zusammenfügens ist trotzdem vollstaendig.")
+    if warning is None:
+        db.delete_invoice(payload.other_id)
     db.update_pages(invoice_id, merged_pages)
 
-    return {
+    result = {
         "ok": True,
         "filename": invoice["filename"],
         "pages_before": src_pages,
         "pages_added": other_pages,
         "pages_after": merged_pages,
+        "removed_file": other["filename"],
+        "backup_path": backup_path,
     }
+    if warning:
+        result["warning"] = warning
+    return result
 
 
 @app.get("/api/history")

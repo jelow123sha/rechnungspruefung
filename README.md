@@ -35,10 +35,13 @@ Netzlaufwerk – für mehrere Nutzer gleichzeitig im Firmennetzwerk.
 - **PDFs zusammenfügen:** Mehrteilige Rechnungen (z. B. Handwerkerrechnung +
   Arbeitsbericht) können vor der Freigabe zusammengefügt werden: Rechnung
   auswählen, im Freigabe-Bereich die anzuhängende PDF aus dem Eingangsordner
-  wählen und auf **Zusammenfügen** klicken. Die anzuhängende Datei wird erst
-  nach erfolgreicher, geprüfter Zusammenführung aus dem Eingangsordner
-  entfernt (Seitenzahl wird verifiziert); bei beschädigten/passwortgeschützten
-  PDFs bricht der Vorgang mit Fehlermeldung ab, ohne Dateien zu verändern.
+  wählen und auf **Zusammenfügen** klicken. Ziel ist immer die in der Liste
+  gewählte Rechnung (sie behält Name und alle Seiten); die angehängte Datei
+  wird nach erfolgreicher, geprüfter Zusammenführung NICHT gelöscht, sondern
+  in den Ordner `.merge_backup` im Eingangsordner verschoben (dort 30 Tage
+  verfügbar, danach automatisch aufgeräumt) und kann bei Bedarf zurückkopiert
+  werden. Bei beschädigten/passwortgeschützten PDFs bricht der Vorgang mit
+  Fehlermeldung ab, ohne Dateien zu verändern.
   Mehrfaches Anhängen (weitere Belege) ist möglich.
 
 ## Installation

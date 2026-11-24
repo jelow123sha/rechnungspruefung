@@ -218,9 +218,10 @@ async function mergePdfs() {
     const otherId = parseInt(mergeSelect.value, 10);
     const other = invoices.find(i => i.id === otherId);
     if (!inv || !other) return;
-    const msg = `"${other.filename}" (${pagesLabel(other)}) wird an "${inv.filename}" angehängt.\n\n` +
-        `Die Datei "${other.filename}" wird danach aus dem Eingangsordner entfernt. ` +
-        `Die zusammengeführte Datei heißt weiterhin "${inv.filename}".\n\nFortfahren?`;
+    const msg = `ZIEL (bleibt erhalten, Name + alle Seiten): "${inv.filename}"\n` +
+        `ANGEHÄNGT & DANACH ENTFERNT: "${other.filename}" (${pagesLabel(other)})\n\n` +
+        `Alle Seiten von "${other.filename}" kommen ans Ende von "${inv.filename}".\n` +
+        `"${other.filename}" wird danach in den Ordner Eingang\\.merge_backup verschoben – wiederherstellbar, nicht gelüscht.\n\nFortfahren?`;
     if (!confirm(msg)) return;
 
     btnMerge.disabled = true;
@@ -233,7 +234,8 @@ async function mergePdfs() {
         await refreshPending();
         selectInvoice(inv.id);
         approvalMsg.className = "msg ok";
-        approvalMsg.textContent = `Zusammengefügt: "${result.filename}" enthält jetzt ${result.pages_after} Seiten (${result.pages_added} angehängt).`;
+        approvalMsg.textContent = `Zusammengefügt: "${result.filename}" hat jetzt ${result.pages_after} Seiten (${result.pages_added} angehängt). "${result.removed_file}" wurde in den Backup-Ordner (.merge_backup) verschoben und kann von dort zurückkopiert werden.`;
+        if (result.warning) { approvalMsg.className = "msg error"; approvalMsg.textContent = result.warning; }
     } catch (err) {
         approvalMsg.className = "msg error";
         approvalMsg.textContent = err.message;
